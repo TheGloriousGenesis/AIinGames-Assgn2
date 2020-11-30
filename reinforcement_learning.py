@@ -189,8 +189,8 @@ def policy_evaluation(env, policy, gamma, theta, max_iterations):
     return value
 
 
-def policy_improvement(env, value, gamma):
-    policy = np.zeros(env.n_states, dtype=int)
+def policy_improvement(env, policy, value, gamma):
+    improved_policy = np.zeros(env.n_states, dtype=int)
     
     # TODO:
     # todo: this does not take in policy how are we suppose to do improvement on it if not here?
@@ -202,8 +202,8 @@ def policy_improvement(env, value, gamma):
                                       for ns in range(env.n_states)]) for a in range(env.n_actions)])
         if chosen_action != best_action:
             stable = False
-        policy[s] = best_action
-    return policy, stable
+        improved_policy[s] = best_action
+    return improved_policy, stable
 
 
 def policy_iteration(env, gamma, theta, max_iterations, policy=None):
