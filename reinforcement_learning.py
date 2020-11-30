@@ -194,7 +194,7 @@ def policy_improvement(env, policy, value, gamma):
     
     # TODO:
     # todo: this does not take in policy how are we suppose to do improvement on it if not here?
-
+    # Have editted this to take in the policy under improvement evalution. Is this correct?
     stable = True
     for s in range(env.n_states):
         chosen_action = policy[s]
