@@ -190,6 +190,12 @@ def policy_evaluation(env, policy, gamma, theta, max_iterations):
 
 
 def policy_improvement(env, policy, value, gamma):
+    """
+    :param policy:  Current policy under evaluation
+    :param value:   Value function for current policy
+    :param gamma:   Discount factor
+    :return:        Returns an improved policy (array of all possible positions in the game)
+    """
     improved_policy = np.zeros(env.n_states, dtype=int)
     
     # TODO:
