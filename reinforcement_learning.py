@@ -2,6 +2,8 @@
 
 import numpy as np
 import contextlib
+from itertools import compress
+
 
 # Configures numpy print options
 @contextlib.contextmanager
@@ -20,10 +22,10 @@ class EnvironmentModel:
         self.n_actions = n_actions
         
         self.random_state = np.random.RandomState(seed)
-        
+
     def p(self, next_state, state, action):
         raise NotImplementedError()
-    
+
     def r(self, next_state, state, action):
         raise NotImplementedError()
 
@@ -43,7 +45,10 @@ class Environment(EnvironmentModel):
 
         self.pi = pi
         if self.pi is None:
-            self.pi = np.full(n_states, 1./n_states)
+            # todo is this ok? as to not start in absorbing state
+            self.pi = np.full(n_states, 1./(n_states - 1))
+            # make last
+            self.pi[-1] = 0
         
     def reset(self):
         self.n_steps = 0
@@ -83,7 +88,8 @@ class FrozenLake(Environment):
         self.lake_flat = self.lake.reshape(-1)
         
         self.slip = slip
-        
+
+        # additional state added for absorbing state
         n_states = self.lake.size + 1
         n_actions = 4
 
@@ -91,9 +97,74 @@ class FrozenLake(Environment):
         pi[np.where(self.lake_flat == '&')[0]] = 1.0
 
         self.absorbing_state = n_states - 1
-        
-        # TODO:
-        
+
+        Environment.__init__(self, n_states, n_actions, max_steps, pi, seed=None)
+        self.P = {s: {a: [] for a in range(n_actions)} for s in range(n_states)}
+
+        nrow = ncol = 4
+        # converts from matrix representation of state to linear array representation. index start from 0
+        def to_s(row, col):
+            return row*ncol + col
+
+        # describes row/ column you will end up on if action a is taken. calculates using min/max to ensure negative values
+        # or off grid values are never chosen for row or column
+        def inc(row, col, a):
+            if a == LEFT:
+                col = max(col - 1, 0)
+            elif a == DOWN:
+                row = min(row + 1, nrow - 1)
+            elif a == RIGHT:
+                col = min(col + 1, ncol - 1)
+            elif a == UP:
+                row = max(row - 1, 0)
+            return (row, col)
+
+        def update_probability_matrix(row, col, action):
+            # calculates new row, col one will be on choosing said action
+            newrow, newcol = inc(row, col, action)
+            # retrieves the state this corresponds to a flattened map representation of states
+            newstate = to_s(newrow, newcol)
+            # retrieves letter representation of state (if goal/hole/ice)
+            newletter = self.lake[newrow, newcol]
+            # checks if you have reached goal state or if you have dropped into a hole
+            done = newletter in [5, 7, 11, 12, 15]
+            # obtains reward for given state
+            reward = 1.0 if newletter == 15 else 0.0
+            return newstate, reward, done
+
+        # for each element in the matrix of states
+        for row in range(nrow):
+            for col in range(ncol):
+                # take the linear representation of the state
+                s = to_s(row, col)
+                # for each action
+                for a in range(4):
+
+                    li = self.P[s][a]
+                    letter = self.lake[row, col]
+                    # if goal or hole populate value with the following:
+                    # [probability, newstate, reward, done]
+                    if letter in ['$']:
+                        li.append((1.0, s, 0, True))
+                    elif letter in ['#']:
+                        li.append((1.0, 16, 0, True))
+                    else:
+                        # if slippery, check all actions permissiable from state and find outcome of them
+                        # for each action there is a list of possible outcomes if not goal/hole
+                        # 0.1 of the time pick random direction (out of three 0.03333)
+                        # 0.9 of time pick assigned direction
+                        for bi in range(4):
+                            if bi == a:
+                                li.append((
+                                    1 - slip,
+                                    *update_probability_matrix(row, col, bi)
+                                ))
+                            else:
+                                li.append((
+                                    slip / 3,
+                                    *update_probability_matrix(row, col, bi)
+                                ))
+
     def step(self, action):
         state, reward, done = Environment.step(self, action)
         
@@ -103,12 +174,21 @@ class FrozenLake(Environment):
         
     def p(self, next_state, state, action):
         # TODO:
-        return
+        res = self.P[state][action]
+        possible_travel_to_states = [a[1] for a in res]
+        if next_state in possible_travel_to_states:
+            y = [i == next_state for i in possible_travel_to_states]
+            z = list(compress(res, y))
+            return sum([i[0] for i in z])
+        return 0.0
     
     def r(self, next_state, state, action):
         # TODO:
-        return
-   
+        if state == 15:
+            return 1.0
+        else:
+            return 0.0
+
     def render(self, policy=None, value=None):
         if policy is None:
             lake = np.array(self.lake_flat)
@@ -134,9 +214,12 @@ class FrozenLake(Environment):
             with _printoptions(precision=3, suppress=True):
                 print(value[:-1].reshape(self.lake.shape))
 
-
 def play(env):
-    actions = ['w', 'a', 's', 'd']
+    # LEFT = 0
+    # DOWN = 1
+    # RIGHT = 2
+    # UP = 3
+    actions = ['a', 's', 'd', 'w']
     
     state = env.reset()
     env.render()
@@ -200,7 +283,9 @@ def policy_improvement(env, policy, value, gamma):
     
     # TODO:
     # todo: this does not take in policy how are we suppose to do improvement on it if not here?
-    # Have editted this to take in the policy under improvement evalution. Is this correct?
+    # Have edited this to take in the policy under improvement evalution. Is this correct?
+    # you can actually find improvement without using policy, just need to calculate if improved policy is
+    # is improved outside in policy iteration. the comparison does not need to happen in this method (abstraction of method)
     stable = True
     for s in range(env.n_states):
         chosen_action = policy[s]
@@ -484,6 +569,10 @@ def main():
 if __name__ == '__main__':
     seed = 0
 
+    LEFT = 0
+    DOWN = 1
+    RIGHT = 2
+    UP = 3
     # Small lake
     lake = [['&', '.', '.', '.'],
               ['.', '#', '.', '#'],
