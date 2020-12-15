@@ -309,8 +309,8 @@ def policy_iteration(env, gamma, theta, max_iterations, policy=None):
 
     while count <= max_iterations and not best_policy_found:
         count = count + 1
-        values = env.policy_evaluation(policy, gamma, theta, max_iterations)
-        policy, best_policy_found = env.policy_improvement(policy, values, gamma)
+        values = policy_evaluation(env, policy, gamma, theta, max_iterations)
+        policy, best_policy_found = policy_improvement(env, policy, values, gamma)
 
     return policy, value
 
@@ -567,18 +567,19 @@ def main():
 
 
 if __name__ == '__main__':
-    seed = 0
-
+    # seed = 0
+    #
     LEFT = 0
     DOWN = 1
     RIGHT = 2
     UP = 3
-    # Small lake
-    lake = [['&', '.', '.', '.'],
-              ['.', '#', '.', '#'],
-              ['.', '.', '.', '#'],
-              ['#', '.', '.', '$']]
-
-    play(FrozenLake(lake, slip=0.1, max_steps=16, seed=seed))
+    # # Small lake
+    # lake = [['&', '.', '.', '.'],
+    #           ['.', '#', '.', '#'],
+    #           ['.', '.', '.', '#'],
+    #           ['#', '.', '.', '$']]
+    #
+    # play(FrozenLake(lake, slip=0.1, max_steps=16, seed=seed))
+    main()
 
 
