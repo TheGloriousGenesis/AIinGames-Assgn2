@@ -92,6 +92,7 @@ class FrozenLake(Environment):
         # additional state added for absorbing state
         n_states = self.lake.size + 1
         n_actions = 4
+        big_env = n_states == 65
 
         pi = np.zeros(n_states, dtype=float)
         pi[np.where(self.lake_flat == '&')[0]] = 1.0
@@ -124,12 +125,16 @@ class FrozenLake(Environment):
             newrow, newcol = inc(row, col, action)
             # retrieves the state this corresponds to a flattened map representation of states
             newstate = to_s(newrow, newcol)
-            # retrieves letter representation of state (if goal/hole/ice)
+            # retrieves char representation of state (if goal/hole/ice)
             newletter = self.lake[newrow, newcol]
-            # checks if you have reached goal state or if you have dropped into a hole
-            done = newletter in [5, 7, 11, 12, 15]
-            # obtains reward for given state
-            reward = 1.0 if newletter == 15 else 0.0
+            # checks if you have reached goal state or if you have dropped into a hole as well
+            # as the reward for that state
+            if big_env:
+                done = newstate in [20, 30, 36, 42, 43, 47, 50, 53, 55, 60, 64]
+                reward = 1.0 if newstate == 64 else 0.0
+            else:
+                done = newstate in [5, 7, 11, 12, 15]
+                reward = 1.0 if newstate == 16 else 0.0
             return newstate, reward, done
 
         # for each element in the matrix of states
@@ -507,12 +512,23 @@ def main():
               ['.', '.', '.', '#'],
               ['#', '.', '.', '$']]
 
+    # # Big lake
+    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
+    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
+
+
     env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
     
     print('# Model-based algorithms')
     gamma = 0.9
     theta = 0.001
-    max_iterations = 100
+    max_iterations = 1000
     
     print('')
     
