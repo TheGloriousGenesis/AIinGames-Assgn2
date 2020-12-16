@@ -377,17 +377,20 @@ def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
 
     eta = np.linspace(eta, 0, max_episodes)
     epsilon = np.linspace(epsilon, 0, max_episodes)
-    done = 0
 
     q = np.zeros((env.n_states, env.n_actions))
 
     for i in range(max_episodes):
         s = env.reset()
         # TODO:
-        while not done:
+        while True:
             a = epsilon_greedy(q, s, epsilon[i], random_state)
             next_s, r, done = env.step(a)
             q[s, a] = q[s, a] + eta[i] * (r + gamma * max(q[next_s, :]) - q[s, a])
+
+            if done:
+                break
+
             s = next_s
 
     policy = q.argmax(axis=1)
@@ -556,7 +559,7 @@ def main():
     print('')
     
     print('# Model-free algorithms')
-    max_episodes = 2000
+    max_episodes = 20000
     eta = 0.5
     epsilon = 0.5
     #
@@ -600,6 +603,7 @@ if __name__ == '__main__':
     DOWN = 1
     RIGHT = 2
     UP = 3
+
     # # Small lake
     # lake = [['&', '.', '.', '.'],
     #           ['.', '#', '.', '#'],
