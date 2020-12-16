@@ -324,7 +324,7 @@ def policy_iteration(env, gamma, theta, max_iterations, policy=None):
         values = policy_evaluation(env, policy, gamma, theta, max_iterations)
         policy, best_policy_found = policy_improvement(env, policy, values, gamma)
 
-    return policy, value
+    return policy, value, count
 
 
 def value_iteration(env, gamma, theta, max_iterations, value=None):
@@ -353,7 +353,7 @@ def value_iteration(env, gamma, theta, max_iterations, value=None):
                                        for next_s in range(env.n_states)]) for a in range(env.n_actions)])
         policy[s] = action_index
 
-    return policy, value
+    return policy, value, count
 
 ################ Tabular model-free algorithms ################
 
@@ -514,20 +514,20 @@ def main():
     seed = 0
     
     # # Small lake
-    lake =   [['&', '.', '.', '.'],
-              ['.', '#', '.', '#'],
-              ['.', '.', '.', '#'],
-              ['#', '.', '.', '$']]
+    # lake =   [['&', '.', '.', '.'],
+    #           ['.', '#', '.', '#'],
+    #           ['.', '.', '.', '#'],
+    #           ['#', '.', '.', '$']]
 
     # Big lake
-    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
-    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
+    lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+            ['.', '.', '.', '.', '.', '.', '.', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '.'],
+            ['.', '.', '.', '.', '.', '#', '.', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '.'],
+            ['.', '#', '#', '.', '.', '.', '#', '.'],
+            ['.', '#', '.', '.', '#', '.', '#', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '$']]
 
 
     env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
@@ -540,53 +540,55 @@ def main():
     print('')
     
     print('## Policy iteration')
-    policy, value = policy_iteration(env, gamma, theta, max_iterations)
+    policy, value, count = policy_iteration(env, gamma, theta, max_iterations)
     env.render(policy, value)
-    
+    print('Count: ' + str(count))
+
     print('')
     
     print('## Value iteration')
-    policy, value = value_iteration(env, gamma, theta, max_iterations)
+    policy, value, count = value_iteration(env, gamma, theta, max_iterations)
     env.render(policy, value)
+    print('Count: ' + str(count))
     
     print('')
     
-    print('# Model-free algorithms')
-    max_episodes = 2000
-    eta = 0.5
-    epsilon = 0.5
-    
-    print('')
-    
-    print('## Sarsa')
-    policy, value = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
-    env.render(policy, value)
-    
-    print('')
-    
-    print('## Q-learning')
-    policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
-    env.render(policy, value)
-    
-    print('')
-    
-    linear_env = LinearWrapper(env)
-    
-    print('## Linear Sarsa')
-    
-    parameters = linear_sarsa(linear_env, max_episodes, eta,
-                              gamma, epsilon, seed=seed)
-    policy, value = linear_env.decode_policy(parameters)
-    linear_env.render(policy, value)
-    
-    print('')
-    
-    print('## Linear Q-learning')
-    
-    parameters = linear_q_learning(linear_env, max_episodes, eta,
-                                   gamma, epsilon, seed=seed)
-    policy, value = linear_env.decode_policy(parameters)
-    linear_env.render(policy, value)
+    # print('# Model-free algorithms')
+    # max_episodes = 2000
+    # eta = 0.5
+    # epsilon = 0.5
+    #
+    # print('')
+    #
+    # print('## Sarsa')
+    # policy, value = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    # env.render(policy, value)
+    #
+    # print('')
+    #
+    # print('## Q-learning')
+    # policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    # env.render(policy, value)
+    #
+    # print('')
+    #
+    # linear_env = LinearWrapper(env)
+    #
+    # print('## Linear Sarsa')
+    #
+    # parameters = linear_sarsa(linear_env, max_episodes, eta,
+    #                           gamma, epsilon, seed=seed)
+    # policy, value = linear_env.decode_policy(parameters)
+    # linear_env.render(policy, value)
+    #
+    # print('')
+    #
+    # print('## Linear Q-learning')
+    #
+    # parameters = linear_q_learning(linear_env, max_episodes, eta,
+    #                                gamma, epsilon, seed=seed)
+    # policy, value = linear_env.decode_policy(parameters)
+    # linear_env.render(policy, value)
 
 
 if __name__ == '__main__':
@@ -602,7 +604,7 @@ if __name__ == '__main__':
     #           ['.', '.', '.', '#'],
     #           ['#', '.', '.', '$']]
     #
-    # # Big lake
+    # Big lake
     # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '#', '.', '.', '.', '.'],
