@@ -1,8 +1,9 @@
 ################ Environment ################
 
-import numpy as np
 import contextlib
 from itertools import compress
+
+import numpy as np
 
 
 # Configures numpy print options
@@ -92,7 +93,6 @@ class FrozenLake(Environment):
         # additional state added for absorbing state
         n_states = self.lake.size + 1
         n_actions = 4
-        big_env = n_states == 65
 
         pi = np.zeros(n_states, dtype=float)
         pi[np.where(self.lake_flat == '&')[0]] = 1.0
@@ -102,7 +102,8 @@ class FrozenLake(Environment):
         Environment.__init__(self, n_states, n_actions, max_steps, pi, seed=None)
         self.P = {s: {a: [] for a in range(n_actions)} for s in range(n_states)}
 
-        nrow = ncol = 4
+        nrow = ncol = len(lake)
+
         # converts from matrix representation of state to linear array representation. index start from 0
         def to_s(row, col):
             return row*ncol + col
@@ -129,18 +130,17 @@ class FrozenLake(Environment):
             newletter = self.lake[newrow, newcol]
             # checks if you have reached goal state or if you have dropped into a hole as well
             # as the reward for that state
-            if big_env:
-                done = newstate in [20, 30, 36, 42, 43, 47, 50, 53, 55, 60, 64]
-                reward = 1.0 if newstate == 64 else 0.0
+            done = newletter == '$' or newletter == '#'
+            if newletter == '$':
+                reward = 1.0
             else:
-                done = newstate in [5, 7, 11, 12, 15]
-                reward = 1.0 if newstate == 16 else 0.0
+                reward = 0.0
             return newstate, reward, done
 
         # for each element in the matrix of states
         for row in range(nrow):
             for col in range(ncol):
-                # take the linear representation of the state
+                # take the linear representation of the state. starts from 0 to n_states - 1
                 s = to_s(row, col)
                 # for each action
                 for a in range(4):
@@ -149,10 +149,10 @@ class FrozenLake(Environment):
                     letter = self.lake[row, col]
                     # if goal or hole populate value with the following:
                     # [probability, newstate, reward, done]
-                    if letter in ['$']:
-                        li.append((1.0, s, 0, True))
-                    elif letter in ['#']:
-                        li.append((1.0, 16, 0, True))
+                    if letter == '$':
+                        li.append((1.0, s, 1.0, True))
+                    elif letter == '#':
+                        li.append((1.0, n_states - 1, 0, True))
                     else:
                         # if slippery, check all actions permissiable from state and find outcome of them
                         # for each action there is a list of possible outcomes if not goal/hole
@@ -169,6 +169,9 @@ class FrozenLake(Environment):
                                     slip / 3,
                                     *update_probability_matrix(row, col, bi)
                                 ))
+        for a in range(4):
+            absorb_state = self.P[len(self.P) - 1][a]
+            absorb_state.append((1.0, n_states - 1, 0, True))
 
     def step(self, action):
         state, reward, done = Environment.step(self, action)
@@ -179,6 +182,9 @@ class FrozenLake(Environment):
         
     def p(self, next_state, state, action):
         # TODO:
+        if state == self.n_states - 1 == next_state:
+            return 1.0
+
         res = self.P[state][action]
         possible_travel_to_states = [a[1] for a in res]
         if next_state in possible_travel_to_states:
@@ -189,7 +195,8 @@ class FrozenLake(Environment):
     
     def r(self, next_state, state, action):
         # TODO:
-        if state == 15:
+        # returns the state that is at the last square on grid
+        if state == self.n_states - 2:
             return 1.0
         else:
             return 0.0
@@ -506,13 +513,13 @@ def epsilon_greedy_feature(q, epsilon, random_state):
 def main():
     seed = 0
     
-    # Small lake
+    # # Small lake
     lake =   [['&', '.', '.', '.'],
               ['.', '#', '.', '#'],
               ['.', '.', '.', '#'],
               ['#', '.', '.', '$']]
 
-    # # Big lake
+    # Big lake
     # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '#', '.', '.', '.', '.'],
@@ -583,7 +590,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # seed = 0
+    seed = 0
     #
     LEFT = 0
     DOWN = 1
@@ -595,7 +602,15 @@ if __name__ == '__main__':
     #           ['.', '.', '.', '#'],
     #           ['#', '.', '.', '$']]
     #
-    # play(FrozenLake(lake, slip=0.1, max_steps=16, seed=seed))
+    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
+    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
+    # play(FrozenLake(lake, slip=0.1, max_steps=40, seed=seed))
     main()
 
 
