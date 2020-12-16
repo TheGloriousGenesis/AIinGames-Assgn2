@@ -4,6 +4,7 @@ import contextlib
 from itertools import compress
 
 import numpy as np
+import time
 
 
 # Configures numpy print options
@@ -63,9 +64,7 @@ class Environment(EnvironmentModel):
         
         self.n_steps += 1
         done = (self.n_steps >= self.max_steps)
-        
         self.state, reward = self.draw(self.state, action)
-        
         return self.state, reward, done
     
     def render(self, policy=None, value=None):
@@ -150,7 +149,7 @@ class FrozenLake(Environment):
                     # if goal or hole populate value with the following:
                     # [probability, newstate, reward, done]
                     if letter == '$':
-                        li.append((1.0, s, 1.0, True))
+                        li.append((1.0, n_states - 1, 1.0, True))
                     elif letter == '#':
                         li.append((1.0, n_states - 1, 0, True))
                     else:
@@ -177,11 +176,10 @@ class FrozenLake(Environment):
         state, reward, done = Environment.step(self, action)
         
         done = (state == self.absorbing_state) or done
-        
+
         return state, reward, done
         
     def p(self, next_state, state, action):
-        # TODO:
         if state == self.n_states - 1 == next_state:
             return 1.0
 
@@ -514,20 +512,20 @@ def main():
     seed = 0
     
     # # Small lake
-    # lake =   [['&', '.', '.', '.'],
-    #           ['.', '#', '.', '#'],
-    #           ['.', '.', '.', '#'],
-    #           ['#', '.', '.', '$']]
+    lake =   [['&', '.', '.', '.'],
+              ['.', '#', '.', '#'],
+              ['.', '.', '.', '#'],
+              ['#', '.', '.', '$']]
 
     # Big lake
-    lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '#', '.', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '.'],
-            ['.', '#', '#', '.', '.', '.', '#', '.'],
-            ['.', '#', '.', '.', '#', '.', '#', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '$']]
+    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
+    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
+    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
+    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
 
 
     env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
@@ -540,23 +538,27 @@ def main():
     print('')
     
     print('## Policy iteration')
+    start_time = time.time()
     policy, value, count = policy_iteration(env, gamma, theta, max_iterations)
+    print("--- %s seconds ---" % (time.time() - start_time))
     env.render(policy, value)
     print('Count: ' + str(count))
 
     print('')
     
     print('## Value iteration')
+    start_time = time.time()
     policy, value, count = value_iteration(env, gamma, theta, max_iterations)
+    print("--- %s seconds ---" % (time.time() - start_time))
     env.render(policy, value)
     print('Count: ' + str(count))
     
     print('')
     
-    # print('# Model-free algorithms')
-    # max_episodes = 2000
-    # eta = 0.5
-    # epsilon = 0.5
+    print('# Model-free algorithms')
+    max_episodes = 2000
+    eta = 0.5
+    epsilon = 0.5
     #
     # print('')
     #
@@ -566,11 +568,11 @@ def main():
     #
     # print('')
     #
-    # print('## Q-learning')
-    # policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
-    # env.render(policy, value)
-    #
-    # print('')
+    print('## Q-learning')
+    policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    env.render(policy, value)
+
+    print('')
     #
     # linear_env = LinearWrapper(env)
     #
