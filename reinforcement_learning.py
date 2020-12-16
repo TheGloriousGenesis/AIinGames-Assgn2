@@ -321,8 +321,8 @@ def policy_iteration(env, gamma, theta, max_iterations, policy=None):
 
     while count <= max_iterations and not best_policy_found:
         count = count + 1
-        values = policy_evaluation(env, policy, gamma, theta, max_iterations)
-        policy, best_policy_found = policy_improvement(env, policy, values, gamma)
+        value = policy_evaluation(env, policy, gamma, theta, max_iterations)
+        policy, best_policy_found = policy_improvement(env, policy, value, gamma)
 
     return policy, value, count
 
