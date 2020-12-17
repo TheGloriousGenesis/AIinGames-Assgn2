@@ -357,20 +357,39 @@ def value_iteration(env, gamma, theta, max_iterations, value=None):
 
 def sarsa(env, max_episodes, eta, gamma, epsilon, seed=None):
     random_state = np.random.RandomState(seed)
-    
+
     eta = np.linspace(eta, 0, max_episodes)
     epsilon = np.linspace(epsilon, 0, max_episodes)
-    
-    q = np.zeros((env.n_states, env.n_actions))
-    
+
+    q = np.zeros([env.n_states, env.n_actions])
+
     for i in range(max_episodes):
         s = env.reset()
         # TODO:
-    
+        if random_state.uniform(0, 1) < epsilon[i]:
+            # select a random action
+            a = random_state.choice(env.n_actions)
+        else:
+            # select a best action
+            a = np.argmax(q[s, :])
+        done = 0
+        while not done:
+            next_s, r, done = env.step(a)
+            if random_state.uniform(0, 1) < epsilon[i]:
+                # select a random action
+                next_a = random_state.choice(env.n_actions)
+            else:
+                # select a best action
+                next_a = np.argmax(q[next_s, :])
+            q[s, a] = q[s, a] + eta[i] * (r + gamma * np.max(q[next_s, next_a]) - q[s, a])
+            s = next_s
+            a = next_a
+
     policy = q.argmax(axis=1)
     value = q.max(axis=1)
-        
+
     return policy, value
+
 
 def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
     random_state = np.random.RandomState(seed)
@@ -378,20 +397,24 @@ def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
     eta = np.linspace(eta, 0, max_episodes)
     epsilon = np.linspace(epsilon, 0, max_episodes)
 
-    q = np.zeros((env.n_states, env.n_actions))
+    q = np.zeros([env.n_states, env.n_actions])
 
     for i in range(max_episodes):
         s = env.reset()
         # TODO:
-        while True:
-            a = epsilon_greedy(q, s, epsilon[i], random_state)
+        done = 0
+        while not done:
+            if random_state.uniform(0, 1) < epsilon[i]:
+                # select a random action
+                a = random_state.choice(env.n_actions)
+            else:
+                # select a best action
+                a = np.argmax(q[s, :])
+
             next_s, r, done = env.step(a)
-            q[s, a] = q[s, a] + eta[i] * (r + gamma * max(q[next_s, :]) - q[s, a])
-
-            if done:
-                break
-
+            q[s, a] = q[s, a] + eta[i] * (r + gamma * np.max(q[next_s, :]) - q[s, a])
             s = next_s
+
 
     policy = q.argmax(axis=1)
     value = q.max(axis=1)
@@ -447,23 +470,49 @@ class LinearWrapper:
     
     def render(self, policy=None, value=None):
         self.env.render(policy, value)
-        
+
 def linear_sarsa(env, max_episodes, eta, gamma, epsilon, seed=None):
     random_state = np.random.RandomState(seed)
-    
+
     eta = np.linspace(eta, 0, max_episodes)
     epsilon = np.linspace(epsilon, 0, max_episodes)
-    
+
     theta = np.zeros(env.n_features)
-    
+
     for i in range(max_episodes):
         features = env.reset()
-        
+
         q = features.dot(theta)
 
         # TODO:
-    
+        done = 0
+
+        if random_state.uniform(0, 1) < epsilon[i]:
+            # select a random action
+            a = random_state.choice(env.n_actions)
+        else:
+            # select a best action
+            a = np.argmax(q)
+        while not done:
+            next_features, r, done = env.step(a)
+
+            delta = r - q[a]
+            q = next_features.dot(theta)
+            if random_state.uniform(0, 1) < epsilon[i]:
+                # select a random action
+                next_a = random_state.choice(env.n_actions)
+            else:
+                # select a best action
+                next_a = np.argmax(q)
+
+            delta = delta + gamma * q[next_a]
+            theta = theta + eta[i] * delta * features[a]
+
+            features = next_features
+            a = next_a
+
     return theta
+
 
 def linear_q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
     random_state = np.random.RandomState(seed)
@@ -473,35 +522,34 @@ def linear_q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
 
     theta = np.zeros(env.n_features)
 
-    q = np.zeros(env.n_actions)
-
     for i in range(max_episodes):
         features = env.reset()
-        done = 0
-        s = random_state.randint(0, env.n_states)
+
         #
         # TODO:
-        for a in range(env.n_actions):
-            index = np.ravel_multi_index((s, a), (env.n_states, env.n_actions))
-            q[a] = np.sum(theta[index] * features[a, index])
+        q = features.dot(theta)
+
+        done = 0
 
         while not done:
-            a = epsilon_greedy_feature(q, epsilon[i])
-            next_s, r, done = env.step(a)
+            if random_state.uniform(0, 1) < epsilon[i]:
+                # select a random action
+                a = random_state.choice(env.n_actions)
+            else:
+                # select a best action
+                a = np.argmax(q)
+            next_features, r, done = env.step(a)
             delta = r - q[a]
 
-            for a in range(env.n_actions):
-                index = np.ravel_multi_index((next_s, a), (env.n_states, env.n_actions))
-                q[a] = np.sum(theta[index] * features[a, index])
+            q = next_features.dot(theta)
 
-            next_a = epsilon_greedy_feature(q, epsilon[i])
-            delta = delta + gamma * q[next_a]
-            theta = theta + eta[i] * delta * features
-            s = next_s
+            delta = delta + gamma * q[np.argmax(q)]
+            theta = theta + eta[i] * delta * features[a]
+            features = next_features
     return theta
 
 def epsilon_greedy_feature(q, epsilon, random_state):
-    if random_state.random.uniform(0, 1) < epsilon:
+    if random_state.uniform(0, 1) < epsilon:
         # select a random action
         action = np.random.randint(0, 4)
     else :
@@ -520,7 +568,7 @@ def main():
               ['.', '.', '.', '#'],
               ['#', '.', '.', '$']]
 
-    # Big lake
+    # # Big lake
     # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '.', '.', '.', '.', '.'],
     #         ['.', '.', '.', '#', '.', '.', '.', '.'],
@@ -533,13 +581,13 @@ def main():
 
     env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
     
-    print('# Model-based algorithms')
+    # print('# Model-based algorithms')
     gamma = 0.9
     theta = 0.001
     max_iterations = 1000
-    
+
     print('')
-    
+
     print('## Policy iteration')
     start_time = time.time()
     policy, value, count = policy_iteration(env, gamma, theta, max_iterations)
@@ -548,52 +596,52 @@ def main():
     print('Count: ' + str(count))
 
     print('')
-    
+
     print('## Value iteration')
     start_time = time.time()
     policy, value, count = value_iteration(env, gamma, theta, max_iterations)
     print("--- %s seconds ---" % (time.time() - start_time))
     env.render(policy, value)
     print('Count: ' + str(count))
-    
+
     print('')
     
     print('# Model-free algorithms')
     max_episodes = 7000
     eta = 0.5
     epsilon = 0.5
-    #
-    # print('')
-    #
-    # print('## Sarsa')
-    # policy, value = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
-    # env.render(policy, value)
-    #
-    # print('')
-    #
+
+    print('')
+
+    print('## Sarsa')
+    policy, value = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    env.render(policy, value)
+
+    print('')
+
     print('## Q-learning')
     policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
     env.render(policy, value)
 
     print('')
-    #
-    # linear_env = LinearWrapper(env)
-    #
-    # print('## Linear Sarsa')
-    #
-    # parameters = linear_sarsa(linear_env, max_episodes, eta,
-    #                           gamma, epsilon, seed=seed)
-    # policy, value = linear_env.decode_policy(parameters)
-    # linear_env.render(policy, value)
-    #
-    # print('')
-    #
-    # print('## Linear Q-learning')
-    #
-    # parameters = linear_q_learning(linear_env, max_episodes, eta,
-    #                                gamma, epsilon, seed=seed)
-    # policy, value = linear_env.decode_policy(parameters)
-    # linear_env.render(policy, value)
+
+    linear_env = LinearWrapper(env)
+
+    print('## Linear Sarsa')
+
+    parameters = linear_sarsa(linear_env, max_episodes, eta,
+                              gamma, epsilon, seed=seed)
+    policy, value = linear_env.decode_policy(parameters)
+    linear_env.render(policy, value)
+
+    print('')
+
+    print('## Linear Q-learning')
+
+    parameters = linear_q_learning(linear_env, max_episodes, eta,
+                                   gamma, epsilon, seed=seed)
+    policy, value = linear_env.decode_policy(parameters)
+    linear_env.render(policy, value)
 
 
 if __name__ == '__main__':
