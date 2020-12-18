@@ -14,15 +14,15 @@ def _printoptions(*args, **kwargs):
     np.set_printoptions(*args, **kwargs)
     try:
         yield
-    finally: 
+    finally:
         np.set_printoptions(**original)
 
-        
+
 class EnvironmentModel:
     def __init__(self, n_states, n_actions, seed=None):
         self.n_states = n_states
         self.n_actions = n_actions
-        
+
         self.random_state = np.random.RandomState(seed)
 
     def p(self, next_state, state, action):
@@ -35,14 +35,14 @@ class EnvironmentModel:
         p = [self.p(ns, state, action) for ns in range(self.n_states)]
         next_state = self.random_state.choice(self.n_states, p=p)
         reward = self.r(next_state, state, action)
-        
+
         return next_state, reward
 
-        
+
 class Environment(EnvironmentModel):
     def __init__(self, n_states, n_actions, max_steps, pi, seed=None):
         EnvironmentModel.__init__(self, n_states, n_actions, seed)
-        
+
         self.max_steps = max_steps
 
         self.pi = pi
@@ -51,26 +51,26 @@ class Environment(EnvironmentModel):
             self.pi = np.full(n_states, 1./(n_states - 1))
             # make last
             self.pi[-1] = 0
-        
+
     def reset(self):
         self.n_steps = 0
         self.state = self.random_state.choice(self.n_states, p=self.pi)
-        
+
         return self.state
-        
+
     def step(self, action):
         if action < 0 or action >= self.n_actions:
             raise Exception('Invalid action.')
-        
+
         self.n_steps += 1
         done = (self.n_steps >= self.max_steps)
         self.state, reward = self.draw(self.state, action)
         return self.state, reward, done
-    
+
     def render(self, policy=None, value=None):
         raise NotImplementedError()
 
-        
+
 class FrozenLake(Environment):
     def __init__(self, lake, slip, max_steps, seed=None):
         """
@@ -86,7 +86,7 @@ class FrozenLake(Environment):
         # start (&), frozen (.), hole (#), goal ($)
         self.lake = np.array(lake)
         self.lake_flat = self.lake.reshape(-1)
-        
+
         self.slip = slip
 
         # additional state added for absorbing state
@@ -174,11 +174,11 @@ class FrozenLake(Environment):
 
     def step(self, action):
         state, reward, done = Environment.step(self, action)
-        
+
         done = (state == self.absorbing_state) or done
 
         return state, reward, done
-        
+
     def p(self, next_state, state, action):
         if state == self.n_states - 1 == next_state:
             return 1.0
@@ -190,7 +190,7 @@ class FrozenLake(Environment):
             z = list(compress(res, y))
             return sum([i[0] for i in z])
         return 0.0
-    
+
     def r(self, next_state, state, action):
         if state == self.n_states - 2:
             return 1.0
@@ -204,38 +204,38 @@ class FrozenLake(Environment):
             ## todo: why this?
             if self.state < self.absorbing_state:
                 lake[self.state] = '@'
-                
+
             print(lake.reshape(self.lake.shape))
         else:
             # UTF-8 arrows look nicer, but cannot be used in LaTeX
             # https://www.w3schools.com/charsets/ref_utf_arrows.asp
             actions = ['<', '_', '>', '^']
-            
+
             print('Lake:')
             print(self.lake)
-        
+
             print('Policy:')
             policy = np.array([actions[a] for a in policy[:-1]])
             print(policy.reshape(self.lake.shape))
-            
+
             print('Value:')
             with _printoptions(precision=3, suppress=True):
                 print(value[:-1].reshape(self.lake.shape))
 
 def play(env):
     actions = ['a', 's', 'd', 'w']
-    
+
     state = env.reset()
     env.render()
-    
+
     done = False
     while not done:
         c = input('\nMove: ')
         if c not in actions:
             raise Exception('Invalid action')
-            
+
         state, r, done = env.step(actions.index(c))
-        
+
         env.render()
         print('Reward: {0}.'.format(r))
 
@@ -262,19 +262,14 @@ def policy_evaluation(env, policy, gamma, theta, max_iterations):
     """
     value = np.zeros(env.n_states, dtype=np.float)
     count = 0
-    while True and count < max_iterations:
+    while count < max_iterations:
         delta = 0
         count = count + 1
 
         for s in range(env.n_states):
-            sum_v_for_all_actions = 0
-            for a in range(env.n_actions):
-                for ns in range(env.n_states):
-                    sum_v_for_all_actions += policy[s] * env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + gamma * value[ns])
-
             tmp = value[s]
-            value[s] = sum_v_for_all_actions * sum([env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + (gamma * value[ns]))
-                            for ns in range(env.n_states)])
+            value[s] = (sum([env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + (gamma * value[ns]))
+                             for ns in range(env.n_states)]))
             delta = max(delta, abs(tmp - value[s]))
         if delta < theta:
             break
@@ -289,7 +284,7 @@ def policy_improvement(env, policy, value, gamma):
     :return:        Returns an improved policy (array of all possible positions in the game)
     """
     improved_policy = np.zeros(env.n_states, dtype=int)
-    
+
     # TODO:
     # todo: this does not take in policy how are we suppose to do improvement on it if not here?
     # Have edited this to take in the policy under improvement evalution. Is this correct?
@@ -362,7 +357,11 @@ def sarsa(env, max_episodes, eta, gamma, epsilon, seed=None):
 
     q = np.zeros([env.n_states, env.n_actions])
 
+    count = 0
+    best_policy_found = False
+
     for i in range(max_episodes):
+        count += 1
         s = env.reset()
         # TODO:
         if random_state.uniform(0, 1) < epsilon[i]:
@@ -384,10 +383,14 @@ def sarsa(env, max_episodes, eta, gamma, epsilon, seed=None):
             s = next_s
             a = next_a
 
-    policy = q.argmax(axis=1)
-    value = q.max(axis=1)
+        policy = q.argmax(axis=1)
 
-    return policy, value
+        value = policy_evaluation(env, policy, gamma, 0.001, 100)
+        _, best_policy_found = policy_improvement(env, policy, value, gamma)
+        if best_policy_found:
+            break
+
+    return policy, value, count
 
 
 def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
@@ -398,7 +401,11 @@ def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
 
     q = np.zeros([env.n_states, env.n_actions])
 
+    count = 0
+    best_policy_found = False
+
     for i in range(max_episodes):
+        count += 1
         s = env.reset()
         # TODO:
         done = 0
@@ -414,59 +421,52 @@ def q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
             q[s, a] = q[s, a] + eta[i] * (r + gamma * np.max(q[next_s, :]) - q[s, a])
             s = next_s
 
+        policy = q.argmax(axis=1)
+        value = policy_evaluation(env, policy, gamma, 0.001, 100)
+        _, best_policy_found = policy_improvement(env, policy, value, gamma)
+        if best_policy_found:
+            break
 
-    policy = q.argmax(axis=1)
-    value = q.max(axis=1)
-
-    return policy, value
-
-def epsilon_greedy(q, s, epsilon, random_state):
-    if random_state.uniform(0, 1) < epsilon:
-        # select a random action
-        action = np.random.randint(0, 4)
-    else :
-        # select a best action
-        action = np.argmax(q[s, :])
-    return action
+    return policy, value, count
 ################ Non-tabular model-free algorithms ################
 
 class LinearWrapper:
     def __init__(self, env):
         self.env = env
-        
+
         self.n_actions = self.env.n_actions
         self.n_states = self.env.n_states
         self.n_features = self.n_actions * self.n_states
-        
+
     def encode_state(self, s):
         features = np.zeros((self.n_actions, self.n_features))
         for a in range(self.n_actions):
             i = np.ravel_multi_index((s, a), (self.n_states, self.n_actions))
             features[a, i] = 1.0
-          
+
         return features
-    
+
     def decode_policy(self, theta):
         policy = np.zeros(self.env.n_states, dtype=int)
         value = np.zeros(self.env.n_states)
-        
+
         for s in range(self.n_states):
             features = self.encode_state(s)
             q = features.dot(theta)
-            
+
             policy[s] = np.argmax(q)
             value[s] = np.max(q)
-        
+
         return policy, value
-        
+
     def reset(self):
         return self.encode_state(self.env.reset())
-    
+
     def step(self, action):
         state, reward, done = self.env.step(action)
-        
+
         return self.encode_state(state), reward, done
-    
+
     def render(self, policy=None, value=None):
         self.env.render(policy, value)
 
@@ -547,39 +547,13 @@ def linear_q_learning(env, max_episodes, eta, gamma, epsilon, seed=None):
             features = next_features
     return theta
 
-def epsilon_greedy_feature(q, epsilon, random_state):
-    if random_state.uniform(0, 1) < epsilon:
-        # select a random action
-        action = np.random.randint(0, 4)
-    else :
-        # select a best action
-        action = np.argmax(q)
-    return action
 
 ################ Main function ################
 
-def main():
-    seed = 0
-    
-    # # Small lake
-    # lake =   [['&', '.', '.', '.'],
-    #           ['.', '#', '.', '#'],
-    #           ['.', '.', '.', '#'],
-    #           ['#', '.', '.', '$']]
+def main(lake, seed):
 
-    # # Big lake
-    lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '#', '.', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '.'],
-            ['.', '#', '#', '.', '.', '.', '#', '.'],
-            ['.', '#', '.', '.', '#', '.', '#', '.'],
-            ['.', '.', '.', '#', '.', '.', '.', '$']]
+    env = FrozenLake(lake, slip=0.1, max_steps=64, seed=seed)
 
-
-    env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
-    
     # print('# Model-based algorithms')
     gamma = 0.9
     theta = 0.001
@@ -590,36 +564,42 @@ def main():
     print('## Policy iteration')
     start_time = time.time()
     policy, value, count = policy_iteration(env, gamma, theta, max_iterations)
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("use %s seconds to find an optimal policy in count %d"
+          %((time.time() - start_time), count))
     env.render(policy, value)
-    print('Count: ' + str(count))
 
     print('')
 
     print('## Value iteration')
     start_time = time.time()
     policy, value, count = value_iteration(env, gamma, theta, max_iterations)
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("use %s seconds to find an optimal policy in count %d"
+          %((time.time() - start_time), count))
     env.render(policy, value)
-    print('Count: ' + str(count))
 
     print('')
 
     print('# Model-free algorithms')
-    max_episodes = 7000
+    max_episodes = 100000
     eta = 0.5
     epsilon = 0.5
 
     print('')
 
     print('## Sarsa')
-    policy, value = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    start_time = time.time()
+    policy, value, count = sarsa(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    print("use %s seconds to find an optimal policy in episode %d"
+          %((time.time() - start_time), count))
     env.render(policy, value)
 
     print('')
 
     print('## Q-learning')
-    policy, value = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    start_time = time.time()
+    policy, value, count = q_learning(env, max_episodes, eta, gamma, epsilon, seed=seed)
+    print("use %s seconds to find an optimal policy in episode %d"
+          %((time.time() - start_time), count))
     env.render(policy, value)
 
     print('')
@@ -627,47 +607,50 @@ def main():
     linear_env = LinearWrapper(env)
 
     print('## Linear Sarsa')
-
-    parameters = linear_sarsa(linear_env, max_episodes, eta,
+    episodes_Lsarsa = 15000
+    start_time = time.time()
+    parameters = linear_sarsa(linear_env, episodes_Lsarsa, eta,
                               gamma, epsilon, seed=seed)
+    print("use %s seconds" %((time.time() - start_time)))
     policy, value = linear_env.decode_policy(parameters)
     linear_env.render(policy, value)
 
     print('')
 
     print('## Linear Q-learning')
-
-    parameters = linear_q_learning(linear_env, max_episodes, eta,
+    episode_Lqlearn = 20000
+    start_time = time.time()
+    parameters = linear_q_learning(linear_env, episode_Lqlearn, eta,
                                    gamma, epsilon, seed=seed)
+    print("use %s seconds" %((time.time() - start_time)))
     policy, value = linear_env.decode_policy(parameters)
     linear_env.render(policy, value)
 
 
 if __name__ == '__main__':
     seed = 0
-    #
+
     LEFT = 0
     DOWN = 1
     RIGHT = 2
     UP = 3
-
-    # # Small lake
-    # lake = [['&', '.', '.', '.'],
-    #           ['.', '#', '.', '#'],
-    #           ['.', '.', '.', '#'],
-    #           ['#', '.', '.', '$']]
+    # Small lake
+    smalllake = [['&', '.', '.', '.'],
+                 ['.', '#', '.', '#'],
+                 ['.', '.', '.', '#'],
+                 ['#', '.', '.', '$']]
     #
     # Big lake
-    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
-    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
+    biglake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+               ['.', '.', '.', '.', '.', '.', '.', '.'],
+               ['.', '.', '.', '#', '.', '.', '.', '.'],
+               ['.', '.', '.', '.', '.', '#', '.', '.'],
+               ['.', '.', '.', '#', '.', '.', '.', '.'],
+               ['.', '#', '#', '.', '.', '.', '#', '.'],
+               ['.', '#', '.', '.', '#', '.', '#', '.'],
+               ['.', '.', '.', '#', '.', '.', '.', '$']]
 
     # play(FrozenLake(lake, slip=0.1, max_steps=(len(lake)**2), seed=seed))
-    main()
+    main(biglake, seed)
 
 
