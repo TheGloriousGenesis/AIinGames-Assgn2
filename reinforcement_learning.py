@@ -192,8 +192,6 @@ class FrozenLake(Environment):
         return 0.0
     
     def r(self, next_state, state, action):
-        # TODO:
-        # returns the state that is at the last square on grid
         if state == self.n_states - 2:
             return 1.0
         else:
@@ -225,10 +223,6 @@ class FrozenLake(Environment):
                 print(value[:-1].reshape(self.lake.shape))
 
 def play(env):
-    # LEFT = 0
-    # DOWN = 1
-    # RIGHT = 2
-    # UP = 3
     actions = ['a', 's', 'd', 'w']
     
     state = env.reset()
@@ -273,8 +267,13 @@ def policy_evaluation(env, policy, gamma, theta, max_iterations):
         count = count + 1
 
         for s in range(env.n_states):
+            sum_v_for_all_actions = 0
+            for a in range(env.n_actions):
+                for ns in range(env.n_states):
+                    sum_v_for_all_actions += policy[s] * env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + gamma * value[ns])
+
             tmp = value[s]
-            value[s] = sum([env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + (gamma * value[ns]))
+            value[s] = sum_v_for_all_actions * sum([env.p(ns, s, policy[s]) * (env.r(ns, s, policy[s]) + (gamma * value[ns]))
                             for ns in range(env.n_states)])
             delta = max(delta, abs(tmp - value[s]))
         if delta < theta:
@@ -563,20 +562,20 @@ def main():
     seed = 0
     
     # # Small lake
-    lake =   [['&', '.', '.', '.'],
-              ['.', '#', '.', '#'],
-              ['.', '.', '.', '#'],
-              ['#', '.', '.', '$']]
+    # lake =   [['&', '.', '.', '.'],
+    #           ['.', '#', '.', '#'],
+    #           ['.', '.', '.', '#'],
+    #           ['#', '.', '.', '$']]
 
     # # Big lake
-    # lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '.', '.', '.', '.', '#', '.', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '.'],
-    #         ['.', '#', '#', '.', '.', '.', '#', '.'],
-    #         ['.', '#', '.', '.', '#', '.', '#', '.'],
-    #         ['.', '.', '.', '#', '.', '.', '.', '$']]
+    lake = [['&', '.', '.', '.', '.', '.', '.', '.'],
+            ['.', '.', '.', '.', '.', '.', '.', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '.'],
+            ['.', '.', '.', '.', '.', '#', '.', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '.'],
+            ['.', '#', '#', '.', '.', '.', '#', '.'],
+            ['.', '#', '.', '.', '#', '.', '#', '.'],
+            ['.', '.', '.', '#', '.', '.', '.', '$']]
 
 
     env = FrozenLake(lake, slip=0.1, max_steps=16, seed=seed)
@@ -605,7 +604,7 @@ def main():
     print('Count: ' + str(count))
 
     print('')
-    
+
     print('# Model-free algorithms')
     max_episodes = 7000
     eta = 0.5
